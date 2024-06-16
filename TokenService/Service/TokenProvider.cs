@@ -97,7 +97,7 @@
         public bool ValidateTokenPair(string accessToken, string refreshToken, out Dictionary<string, string> validatedClaims)
         {
             validatedClaims = new Dictionary<string, string>();
-            if (!ValidateAccessToken(accessToken, out var accessTokenClaims)) return false;
+            if (!ExtractJwtToken(accessToken, out var accessTokenClaims)) return false;
             if (!ValidateRefreshToken(refreshToken, out var refreshTokenClaims)) return false;
             if (accessTokenClaims == null || refreshTokenClaims == null) return false;
             accessTokenClaims.TryGetValue(TokenPairIdClaimName, out var accessTokenPairId);
@@ -202,6 +202,32 @@
             }
 
             validatedClaims = claims;
+            return true;
+        }
+
+        private bool ExtractJwtToken(string jwtToken, out Dictionary<string, string>? decodedClaims)
+        {
+            var signTokenKey = Encoding.ASCII.GetBytes(this.signTokenKey);
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(signTokenKey),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = true
+            };
+
+            var jwtTokenDecoded = tokenHandler.ReadJwtToken(jwtToken);
+            if (jwtTokenDecoded == null)
+            {
+                decodedClaims = null;
+                return false;
+            }
+
+            var claims = jwtTokenDecoded.Claims.ToDictionary(c => c.Type, c => c.Value);
+            decodedClaims = claims;
             return true;
         }
     }
